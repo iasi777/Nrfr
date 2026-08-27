@@ -157,7 +157,7 @@ fun MainScreen(onShowAbout: () -> Unit) {
                 customCarrierName = customCarrierName,
                 onReset = {
                     try {
-                        CarrierConfigManager.resetCarrierConfig(it.subId)
+                        CarrierConfigManager.resetCarrierConfig(context, it.subId)
                         Toast.makeText(context, "设置已还原", Toast.LENGTH_SHORT).show()
                         refreshTrigger += 1
                         selectedCountryCode = ""
@@ -180,6 +180,7 @@ fun MainScreen(onShowAbout: () -> Unit) {
                             selectedCountryCode
                         }
                         CarrierConfigManager.setCarrierConfig(
+                            context,
                             simCard.subId,
                             countryCode,
                             carrierName
