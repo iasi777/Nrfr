@@ -1,0 +1,24 @@
+# Findings
+
+- Device: Xiaomi/Redmi `24090RA29C` (`malachite`).
+- OS: Android 16 / API 36, HyperOS build `OS3.0.304.0.WOOCNXM`.
+- Android security patch: `2026-05-01`.
+- Shizuku `13.5.4.r1049` is installed and `shizuku_server` is running.
+- `com.github.nrfr` is not currently installed for user 0.
+- Upstream Nrfr 1.0.3 directly calls hidden Binder API `ICarrierConfigLoader.overrideConfig`.
+- The reviewed `fix/update_20251005` branch routes devices with security patches from October 2025 onward through an Instrumentation broker that adopts shell permissions before calling `CarrierConfigManager.overrideConfig`.
+- The host initially had no `java`, `gradle`, `sdkmanager`, `ANDROID_HOME`, or `ANDROID_SDK_ROOT` visible on PATH.
+- The user previously tested the patched build: it reported success, but TikTok still could not connect.
+- This makes a TikTok network/IP/alternate-region-signal check more likely than a simple `overrideConfig` permission failure.
+- TikTok 45.4.3 is installed as `com.zhiliaoapp.musically`.
+- TikTok UID 10387 is included in the Clash VPN UID ranges and has traffic on `tun0`.
+- In Clash rule mode, core TikTok domains route through the configured Korean proxy; ad/analytics rules reject `log.byteoversea.com` and AppsFlyer endpoints.
+- TikTok's Android process configuration remains `460mcc11mnc [zh_CN]`, independent of Nrfr's currently absent CarrierConfig override.
+- A temporary Clash global-mode test produced failed TikTok connections to suspicious/poisoned destination IPs, so rule mode is the correct baseline and was restored.
+- Controlled reproduction at 2026-06-09 10:53:54 produced `SecurityException: overrideConfig with persistent=true only can be invoked by system app`.
+- The failure occurs asynchronously in `CarrierConfigLoader`, so Nrfr displays a success toast even though the override is rejected.
+- After the reported success, both `mPersistentOverrideConfigs` and `mOverrideConfigs` remained null, and Nrfr displayed `无覆盖配置`.
+- The minimal Android 16-compatible fix is to call `CarrierConfigManager.overrideConfig(..., false)` from the Instrumentation broker. This loses reboot persistence but should retain the override for the current boot.
+- The patched APK successfully populated `mOverrideConfigs` with `sim_country_iso_override_string = us`.
+- System SIM country properties changed from `de,cn` to `de,us`.
+- TikTok connected successfully after restart while its core domains continued through the configured Korean proxy.

@@ -1,7 +1,11 @@
 package com.github.nrfr.manager
 
+import android.app.IActivityManager
+import android.app.UiAutomationConnection
+import android.content.ComponentName
 import android.content.Context
 import android.os.Build
+import android.os.Bundle
 import android.os.PersistableBundle
 import android.telephony.CarrierConfigManager
 import android.telephony.SubscriptionManager
@@ -9,7 +13,12 @@ import android.telephony.TelephonyFrameworkInitializer
 import android.telephony.TelephonyManager
 import com.android.internal.telephony.ICarrierConfigLoader
 import com.github.nrfr.model.SimCardInfo
+import com.github.nrfr.utils.toPersistableBundle
 import rikka.shizuku.ShizukuBinderWrapper
+import rikka.shizuku.SystemServiceHelper
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 object CarrierConfigManager {
     fun getSimCards(context: Context): List<SimCardInfo> {
@@ -84,8 +93,8 @@ object CarrierConfigManager {
         }
     }
 
-    fun setCarrierConfig(subId: Int, countryCode: String?, carrierName: String? = null) {
-        val bundle = PersistableBundle()
+    fun setCarrierConfig(context: Context, subId: Int, countryCode: String?, carrierName: String? = null) {
+        val bundle = Bundle()
 
         // 设置国家码
         if (!countryCode.isNullOrEmpty() && countryCode.length == 2) {
@@ -101,14 +110,57 @@ object CarrierConfigManager {
             bundle.putString(CarrierConfigManager.KEY_CARRIER_NAME_STRING, carrierName)
         }
 
-        overrideCarrierConfig(subId, bundle)
+        overrideCarrierConfig(context, subId, bundle)
     }
 
-    fun resetCarrierConfig(subId: Int) {
-        overrideCarrierConfig(subId, null)
+    fun resetCarrierConfig(context: Context, subId: Int) {
+        overrideCarrierConfig(context, subId, null)
     }
 
-    private fun overrideCarrierConfig(subId: Int, bundle: PersistableBundle?) {
+    private fun overrideCarrierConfig(context: Context, subId: Int, bundle: Bundle?) {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val cal = Calendar.getInstance()
+        val securityPatchDate = sdf.parse(Build.VERSION.SECURITY_PATCH)
+        if (securityPatchDate == null) {
+            this.overrideCarrierConfigDirectly(subId, bundle)
+        } else {
+            cal.time = securityPatchDate
+            if (cal.get(Calendar.YEAR) > 2025 || (cal.get(Calendar.YEAR) == 2025 && cal.get(Calendar.MONTH) >= 9)) {
+                this.overrideCarrierConfigUsingBroker(context, subId, bundle)
+            } else {
+                this.overrideCarrierConfigDirectly(subId, bundle)
+            }
+        }
+    }
+
+    private fun overrideCarrierConfigUsingBroker(context: Context, subId: Int, bundle: Bundle?) {
+        val am =
+            IActivityManager.Stub.asInterface(
+                ShizukuBinderWrapper(
+                    SystemServiceHelper.getSystemService(Context.ACTIVITY_SERVICE),
+                ),
+            )
+
+        val arg =
+            bundle ?: run {
+                val empty = Bundle()
+                empty.putBoolean("moder_clear", true)
+                empty
+            }
+        arg.putInt("moder_subId", subId)
+
+        am.startInstrumentation(
+            ComponentName(context, Class.forName("com.github.nrfr.utils.BrokerInstrumentation")),
+            null,
+            8,
+            arg,
+            null,
+            UiAutomationConnection(),
+            0,
+            null,
+        )
+    }
+    private fun overrideCarrierConfigDirectly(subId: Int, bundle: Bundle?) {
         val carrierConfigLoader = ICarrierConfigLoader.Stub.asInterface(
             ShizukuBinderWrapper(
                 TelephonyFrameworkInitializer
@@ -117,6 +169,13 @@ object CarrierConfigManager {
                     .get()
             )
         )
-        carrierConfigLoader.overrideConfig(subId, bundle, true)
+        val arg =
+            bundle ?: run {
+                val empty = Bundle()
+                empty.putBoolean("moder_clear", true)
+                empty
+            }
+        arg.putInt("moder_subId", subId)
+        carrierConfigLoader.overrideConfig(subId, toPersistableBundle(arg), true)
     }
 }

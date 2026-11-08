@@ -1,0 +1,28 @@
+# Progress
+
+- Read upstream source and identified the direct CarrierConfig Binder call.
+- Compared the October 2025 fix branch and reviewed its Instrumentation-based permission broker.
+- Connected to the phone over ADB and captured non-sensitive build/application state.
+- Confirmed Shizuku is active and Nrfr is absent.
+- Cloned the reviewed fix branch into `/home/tang/projects/Nrfr`.
+- Began checking the host for a usable Android build toolchain.
+- User confirmed the patched APK had already been tested successfully at the UI level; paused redundant build/install work.
+- Switched diagnosis to TikTok package state, effective country signals, and network connectivity.
+- Confirmed TikTok is routed through Clash and core domains use the Korean proxy in rule mode.
+- Confirmed Android still supplies MCC 460/MNC 11 and `zh_CN` to the TikTok process.
+- Ran and reverted a temporary Clash global-mode comparison; global mode caused connection refusals/timeouts.
+- User requested a fresh patched-Nrfr installation and controlled reproduction.
+- Reinstalled and authorized the fixed-debug build.
+- Captured a clean save attempt for SIM 2 / US.
+- Confirmed the save was rejected by HyperOS because the fork requests a persistent override from a non-system app.
+- Began implementing a non-persistent Android 16 path.
+- Installed a user-local JDK 17, Gradle 8.9, and Android SDK 34 toolchain.
+- Source compilation reached Kotlin but failed because the fork does not provide the hidden-API stubs used by its source.
+- Switched to a minimal smali patch of the verified fixed-debug APK.
+- Rebuilt, signed, and installed the non-persistent APK patch.
+- Verified the override was accepted without `SecurityException`.
+- Verified TikTok connected successfully.
+- Began preparing the equivalent source change for the user's GitHub fork.
+- Created `iasi777/Nrfr`.
+- Pushed commit `c32d64c` on `fix/android16-nonpersistent-override`.
+- Opened pull request `iasi777/Nrfr#1`.
